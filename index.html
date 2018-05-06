@@ -1,0 +1,192 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <title>7 years in LLT</title>
+
+    <link rel="stylesheet" href="reveal.js/css/reveal.css">
+    <link rel="stylesheet" href="reveal.js/css/theme/black.css">
+    <link rel="stylesheet" href="reveal.js/lib/css/zenburn.css">
+
+    <style>
+        div.left-pane {
+            width: 50%;
+            float: left;
+        }
+
+        div.right-pane {
+            width: 50%;
+            float: right;
+        }
+    </style>
+
+    <script>
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.type = 'text/css';
+        link.href = window.location.search.match(/print-pdf/gi) ? 'reveal.js/css/print/pdf.css' : 'reveal.js/css/print/paper.css';
+        document.getElementsByTagName('head')[0].appendChild(link);
+    </script>
+</head>
+<body>
+<div class="reveal">
+    <section class="slides">
+
+        <section>
+            <h2>7 years of C++ in<br>low latency trading</h2>
+        </section>
+
+        <section>
+            <section>
+                <div><code>reinterpret_cast</code></div>
+                <ul class="fragment">
+                    <li>Network buffers</li>
+                    <li>DMA regions</li>
+                    <li>IPC buffers</li>
+                    <li><code>mmap</code>ed files</li>
+                </ul>
+            </section>
+            <section>
+                <h3>Network</h3>
+                <pre><code data-trim data-noescape class="cpp">
+                    char buf[1500];
+                    read = recv(fd, buf, sizeof(buf), 0); <span class="fragment">// but really not this at all...</span>
+                    if (read < sizeof(MessageHeader))
+                      throw "yikes";
+                    auto *hdr = reinterpret_cast&ltconst MessageHeader *>(buf);
+                </code></pre>
+            </section>
+            <section>
+                <div class="left-pane">
+                <pre><code data-trim data-noescape class="cpp">
+struct MessageHeader {
+  uint32_t sequence;
+  uint16_t nRecords;
+} __attribute__((packed));
+
+struct RecordHeader {
+  uint16_t size;
+  uint8_t type;
+} __attribute__((packed));
+                </code></pre>
+                </div>
+                <div class="right-pane">
+                <pre><code data-trim data-noescape class="cpp">
+struct AddOrder {
+  uint64_t orderId;
+  uint32_t productId;
+  uint8_t side;
+  uint32_t price;
+  uint32_t quantity;
+} __attribute__((packed));
+
+struct RemoveOrder {
+  uint64_t orderId;
+  uint32_t productId;
+} __attribute__((packed));
+                </code></pre>
+                </div>
+            </section>
+        </section>
+
+        <section>
+            <section>
+                <h3>Value types</h3>
+                <ul class="fragment">
+                    <li>Zero cost</li>
+                    <li>Type safe</li>
+                </ul>
+            </section>
+            <section>
+                <pre><code data-trim data-noescape class="cpp">
+                    void sellShares(const char *stock, double px, int qty);
+
+                    // I want to sell 100 shares for $1200!
+                    sellShares("GOOG", 100, 1200); <span class="fragment">// oops</span>
+                </code></pre>
+            </section>
+            <section>
+                <pre><code data-trim data-noescape class="cpp">
+                    void sellShares(const char *stock, Price px, Quantity qty);
+
+                    sellShares("GOOG", 100_qty, 1200_px); <span class="fragment">// Helpful compile error!</span>
+                </code></pre>
+            </section>
+        </section>
+
+        <section>
+            <section>
+                <h3>Code generation</h3>
+                <ul class="fragment">
+                    <li>Performance is critical</li>
+                    <li>But so is correctness</li>
+                </ul>
+                <div>
+                    <img class="fragment" src="ce-logo.svg" width="160px">
+                </div>
+            </section>
+        </section>
+        <section>
+            <section>
+                <h3>Template all the things!</h3>
+                <ul class="fragment">
+                    <li>Parametric specialisation</li>
+                    <li>Becoming more <code>constexpr</code> all the things</li>
+                </ul>
+            </section>
+            <section>
+                <pre><code data-trim data-noescape class="cpp">
+                    template&lt;int numDigits>
+                    void formatNumberZeroPadded(int value) {
+                      for (int digit = numDigits - 1; digit >= 0; --digit) {
+                        buf_[digit] = '0' + value % 10;
+                        value /= 10;
+                      }
+                    }
+                </code></pre>
+            </section>
+        </section>
+        <section>
+            <h2>Testing</h2>
+            <ul>
+                <li>GoogleTest</li>
+                <li>catch2</li>
+                <li>Sanitizers</li>
+                <li>End-to-end integration tests</li>
+                <li>Debug <em>and</em> optimized builds</li>
+            </ul>
+        </section>
+        <section>
+            <h2>Conclusion</h2>
+            <h5 class="fragment">Lots of fun!</h5>
+        </section>
+    </section>
+</div>
+
+<script src="reveal.js/lib/js/head.min.js"></script>
+<script src="reveal.js/js/reveal.js"></script>
+
+<script>
+    Reveal.initialize({
+        transition: 'none',
+        history: true,
+        slideNumber: true,
+        width: 1280,
+        height: 720,
+        dependencies: [
+            {src: 'reveal.js/plugin/markdown/marked.js'},
+            {src: 'reveal.js/plugin/markdown/markdown.js'},
+            {src: 'reveal.js/plugin/notes/notes.js', async: true},
+            {
+                src: 'reveal.js/plugin/highlight/highlight.js', async: true,
+                callback: function () {
+                    hljs.initHighlightingOnLoad();
+                }
+            }
+        ]
+    });
+</script>
+</body>
+</html>
